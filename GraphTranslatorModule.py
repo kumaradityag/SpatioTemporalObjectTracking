@@ -1,14 +1,14 @@
 import os
 import json
 import sys
-sys.path.append('helpers')
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'helpers'))
 from random import random
 import numpy as np
 import torch
 from torch.nn import functional as F
 from torch import nn
+from pytorch_lightning import LightningModule
 from torch.optim import Adam
-from pytorch_lightning.core.lightning import LightningModule
 
 
 def get_masks(gt_tensor, output_tensor, input_tensor):
@@ -66,7 +66,8 @@ class GraphTranslatorModule(LightningModule):
         self.class_loss = lambda xc,yc: nn.CrossEntropyLoss(reduction='none')(xc.permute(0,2,1), yc.long())
         self.inference_class = lambda xc: xc.argmax(-1)
 
-        self.context_loss = lambda context_list: sum([torch.nn.CosineEmbeddingLoss()(con, context_list[0], torch.Tensor([1]).to('cuda')) for con in context_list])
+        # self.device follows the trainer's accelerator, so this works on CPU too.
+        self.context_loss = lambda context_list: sum([torch.nn.CosineEmbeddingLoss()(con, context_list[0], torch.ones(1, device=self.device)) for con in context_list])
 
         # self.weighted_combination = nn.Linear(self.num_chebyshev_polys, 1, bias=False)
 
@@ -204,15 +205,17 @@ class GraphTranslatorModule(LightningModule):
         return loss, details, context_pred
 
         
+    # `loss` is a dict of components; Lightning >=2.0 rejects dict values in
+    # self.log, so log each component by name through log_dict.
     def training_step(self, batch, batch_idx):
         loss, _, _ = self.step(batch)
-        self.log('Train loss',loss)
+        self.log_dict({f'Train loss/{k}': v for k, v in loss.items()})
         return sum(loss.values())
 
     def test_step(self, batch, batch_idx):
         loss, _, _ = self.step(batch)
-        self.log('Test loss',loss)
-        return 
+        self.log_dict({f'Test loss/{k}': v for k, v in loss.items()})
+        return
 
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=1e-3)

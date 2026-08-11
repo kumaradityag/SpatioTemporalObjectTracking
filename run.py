@@ -1,8 +1,11 @@
 import sys
-sys.path.append('helpers')
+import os
+
+REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(REPO_ROOT, 'helpers'))
+
 import yaml
 import json
-import os
 import glob
 import argparse
 from adict import adict
@@ -70,12 +73,16 @@ def run_model(data, group, cfg = {}, checkpoint_dir=None, read_ckpt=False, write
             else:
                 output_dir_new = output_dir+'_'+str(epoch)+'epochs'
             os.makedirs(output_dir_new)
+            # Lightning >=2.0 replaced `gpus=N` with accelerator/devices.
+            # gpus=0 meant CPU, so no GPU still means a single CPU device.
+            num_gpus = torch.cuda.device_count()
+            accelerator, devices = ('gpu', num_gpus) if num_gpus > 0 else ('cpu', 1)
             if write_ckpt:
                 ckpt_callback = ModelCheckpoint(dirpath=output_dir_new)
-                trainer = Trainer(gpus = torch.cuda.device_count(), max_epochs=epoch-done_epochs, log_every_n_steps=5, callbacks=[ckpt_callback])
+                trainer = Trainer(accelerator=accelerator, devices=devices, max_epochs=epoch-done_epochs, log_every_n_steps=5, callbacks=[ckpt_callback])
 
             else:
-                trainer = Trainer(gpus = torch.cuda.device_count(), max_epochs=epoch-done_epochs, log_every_n_steps=5)
+                trainer = Trainer(accelerator=accelerator, devices=devices, max_epochs=epoch-done_epochs, log_every_n_steps=5)
 
             trainer.fit(model, data.get_train_loader())
             trainer.test(model, data.get_test_loader())
@@ -144,7 +151,7 @@ def run(data_dir, cfg = {}, baselines=False, ckpt_dir=None, read_ckpt=False, wri
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run model on routines.')
-    parser.add_argument('--path', type=str, default='data/HOMER/household0', help='Path where the data lives. Must contain routines, info and classes json files.')
+    parser.add_argument('--path', type=str, default=os.path.join(REPO_ROOT, 'data', 'HOMER', 'household0'), help='Path where the data lives. Must contain routines, info and classes json files.')
     parser.add_argument('--cfg', type=str, help='Name of config file.')
     parser.add_argument('--train_days', type=int, help='Number of routines to train on.')
     parser.add_argument('--name', type=str, default='trial', help='Name of run.')
@@ -158,11 +165,11 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    with open('config/default.yaml') as f:
+    with open(os.path.join(REPO_ROOT, 'config', 'default.yaml')) as f:
         cfg = yaml.safe_load(f)
 
     if args.cfg is not None:
-        with open(os.path.join('config',args.cfg)+'.yaml') as f:
+        with open(os.path.join(REPO_ROOT, 'config', args.cfg)+'.yaml') as f:
             cfg.update(yaml.safe_load(f))
     if args.name is not None:
         cfg['NAME'] = args.name

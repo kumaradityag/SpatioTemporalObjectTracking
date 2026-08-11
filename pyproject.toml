@@ -1,0 +1,50 @@
+[project]
+name = "spatio-temporal-object-tracking"
+version = "0.1.0"
+description = "Graph translation network for spatio-temporal dynamics of household objects (HOMER)"
+readme = "README.md"
+license = { file = "LICENSE.md" }
+requires-python = ">=3.10"
+dependencies = [
+    "adict>=0.1.7",
+    "matplotlib>=3.8",
+    "networkx>=3.0",
+    "numpy>=1.26",
+    "pytorch-lightning>=2.0",
+    "pyyaml>=6.0",
+    "torch>=2.0",
+]
+
+[project.optional-dependencies]
+# Pick a torch build explicitly. Neither is required: with no extra you get the
+# default PyPI torch, which bundles CUDA and runs on CPU machines too.
+#   uv sync --extra cpu     slim, ~200MB instead of ~3GB (laptops, CI, CPU nodes)
+#   uv sync --extra cu126   explicit CUDA 12.6 build
+cpu = ["torch>=2.0"]
+cu126 = ["torch>=2.0"]
+
+[tool.uv]
+# Flat module layout (run.py, GraphTranslatorModule.py, helpers/) -- there is
+# nothing to build, so treat this as a virtual project: uv manages the
+# environment but never installs the repo itself as a package.
+package = false
+# cpu and cu126 pull the same package from different indexes, so they can never
+# be installed together; declaring the conflict keeps the base resolution (plain
+# PyPI torch) independent of them.
+conflicts = [[{ extra = "cpu" }, { extra = "cu126" }]]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu126", extra = "cu126" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true

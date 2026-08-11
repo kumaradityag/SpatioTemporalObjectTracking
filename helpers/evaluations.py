@@ -3,15 +3,15 @@ import shutil
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import cm
+from matplotlib import colormaps
 from matplotlib.colors import ListedColormap
 from math import isnan, floor, ceil, sqrt
 import torch
 from torch.nn.functional import one_hot
-import wandb
 from copy import deepcopy
 
-viridis = cm.get_cmap('viridis', 256)
+# matplotlib >=3.9 removed cm.get_cmap; colormaps[...] is the replacement.
+viridis = colormaps['viridis'].resampled(256)
 newcolors = viridis(np.linspace(0, 1, 256))
 white = np.array([1, 1, 1, 1])
 newcolors[:25, :] = white
